@@ -390,12 +390,12 @@ This tool will identify:
 * missing or extraneous columns in tables
 * column definitions that do not match the model shard schema definitions
 
-# Configuration
+## Configuration
 The only extra configuration that this tool requires is AUDITOR_LOGDB_CREDENTIALS to be configured and AUDITOR_LOGGING_ENABLED set to
 True if you want to log the results of auditor passes to a database table, otherwise, the tool will use all of the same configurations
 that the mysql-sharded-schema-change tool uses.
 
-# Operation
+## Operation
 Standard operation of the tool is to run it with no options, but you can provide host, port and/or list of shards for the tool to audit
 
     mysql-sharded-schema-auditor
@@ -421,7 +421,7 @@ Example output:
     MISSING TABLE ERROR localhost1:3306 shard_7.test1 not found
     MISSING TABLE ERROR localhost1:3306 shard_7.foo not found
 
-# Options
+## Options
 
       -h, --help            show this help message and exit
       -H HOST, --host HOST  Hostname to filter all shard hosts
