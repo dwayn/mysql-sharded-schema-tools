@@ -370,3 +370,26 @@ the --shards option to attempt to apply the schema change to them again or do a 
 
 This is the list of shards that were skipped due to an error (without setting --ignore-errors) or user interruption and have no schema changes applied. If you wish to
 continue operation then you can pass this list of shards to the --shards option to continue the schema change operation on the list of shards.
+
+
+
+
+
+mysql-sharded-schema-auditor
+============================
+
+Tool for auditing all of the shard schemas to check if they match the model shard.
+
+# Configuration
+The only extra configuration that this tool requires is AUDITOR_LOGDB_CREDENTIALS to be configured and AUDITOR_LOGGING_ENABLED set to
+True if you want to log the results of auditor passes to a database table, otherwise, the tool will use all of the same configurations
+that the mysql-sharded-schema-change tool uses.
+
+# Options
+
+      -h, --help            show this help message and exit
+      -H HOST, --host HOST  Hostname to filter all shard hosts
+      -p PORT, --port PORT  Port to filter all shard hosts
+      --shards SHARDS [SHARDS ...]
+                            space separate list of shards to audit
+

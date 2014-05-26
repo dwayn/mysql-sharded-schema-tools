@@ -81,3 +81,17 @@ OPTIONS = {
     'ignore_errors':    False,
 
 }
+
+AUDITOR_LOGGING_ENABLED = False
+
+AUDITOR_LOGDB_CREDENTIALS = {
+    'host': 'localhost',
+    'port': 3306,
+    'user': 'root',
+    'password': '',
+    'dbname': 'shard_auditor'
+}
+
+SHARD_AUDITOR_SETTINGS = {
+}
+

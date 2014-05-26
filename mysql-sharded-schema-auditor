@@ -1,0 +1,56 @@
+#!/usr/bin/env python
+import argparse
+import MySQLdb
+from ShardAuditor import ShardAuditor
+import settings
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-H', '--host', help="Hostname to filter all shard hosts")
+    parser.add_argument('-p', '--port', help="Port to filter all shard hosts")
+    parser.add_argument('--shards', nargs='+', help="space separate list of shards to audit")
+
+    args = parser.parse_args()
+
+
+    dbconn = MySQLdb.connect(host=settings.LOCATOR_DB_CREDENTIALS['host'],
+                         port=settings.LOCATOR_DB_CREDENTIALS['port'],
+                         user=settings.LOCATOR_DB_CREDENTIALS['user'],
+                         passwd=settings.LOCATOR_DB_CREDENTIALS['password'],
+                         db=settings.LOCATOR_DB_CREDENTIALS['dbname'])
+    db = dbconn.cursor()
+
+    auditor = ShardAuditor()
+    auditor.load_baseline_schema(settings.MODEL_SHARD_DB_CREDENTIALS['user'],
+                                 settings.MODEL_SHARD_DB_CREDENTIALS['password'],
+                                 settings.MODEL_SHARD_DB_CREDENTIALS['host'],
+                                 settings.MODEL_SHARD_DB_CREDENTIALS['port'],
+                                 settings.MODEL_SHARD_DB_CREDENTIALS['dbname'])
+
+
+    whereclause = ''
+    if settings.LOCATOR_TABLE['where_clause']:
+        whereclause = " " + settings.LOCATOR_TABLE['where_clause']
+
+    sql = "select " + settings.LOCATOR_TABLE['shardname_col'] + ", " + settings.LOCATOR_TABLE['host_col'] + ", " \
+               + settings.LOCATOR_TABLE['port_col'] + " from " + settings.LOCATOR_TABLE['tablename'] + whereclause
+    db.execute(sql)
+    rows = db.fetchall()
+    if not rows:
+        print "No shards were found using the following query: " + sql
+        exit()
+    for row in rows:
+        shard, host, port = row
+        if args.host and args.host != host:
+            continue
+        if args.port and args.port != port:
+            continue
+        if args.shards and shard not in args.shards:
+            continue
+
+        auditor.audit_schema(settings.SHARD_DB_CREDENTIALS['user'], settings.SHARD_DB_CREDENTIALS['password'], host, shard, port)
+
+
+
+if __name__ == "__main__":
+    main()
