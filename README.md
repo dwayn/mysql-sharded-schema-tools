@@ -8,4 +8,365 @@ Source URL: https://github.com/dwayn/mysql-sharded-schema-change
 
 # Introduction
 
+This script is designed to aid in applying schema changes to sharded MySQL environments. It will run the schema changes in parallel
+and allows control of the number of processes per server. Internally this is implemented using multiprocessing and a queue per
+unique host/port of changes to make.
 
+Operations currently supported:
+
+* Table alters, either direct by mysql query or online using pt-onine-schema-change
+* Create table
+* Drop table
+* Script
+ * Note: The script support is very basic currently, and due to limitations of python's mysql adapter the script has to be split into
+ its separate queries. The breaking up of the script is done by splitting the contents of the file on semicolons rather than query parsing, so be careful that
+ you do not have semicolons in the script that are not query separators. I plan to reimplement the script handling to use the mysql
+ command line client to execute them in the future.
+
+
+There are a few assumptions that have been made with this tool.
+
+1. Currently it is required that the mysql credentials are the same for all shards
+2. Each shard is contained in a separate schema
+3. There exists an extra schema that acts as the model shard (this shard will be modified first, and is the shard used for dry run operations)
+4. A locator table exists that can be used to get the mapping of shard to host:port where it is located
+5. If you wish to do online alters, pt-online-schema-change must be installed on the host running the tool
+
+
+# Installation & Configuration
+* Clone this git repo
+* pip install -r requirements.txt (this will either need to be done as root or within a virtualenv)
+ * Currently the only requirements are mysql-python and argparse
+* Copy sample_settings.py to settings.py
+ * settings.py is in the .gitignore, this will allow you to update the code with a git pull without stomping on your config file
+* Edit the credentials for the locator DB, shard DBs, and model shard DB
+* Edit the LOCATOR_TABLE variables to allow the tool to query the mapping of shard to host/port
+* Set the path to pt-online-schema-change if you intend to do online alters
+* Suggested: Add the directory that mysql-sharded-schema-change is in to your path for convenience
+
+# Operations
+
+## Alter Table
+
+Table alters are supported as direct queries or as online alters using pt-online-schema-change. Alters support --dry-run option for both
+online and direct mode, and the dry-run will be run against the model shard.
+
+Options required: --mode, --table, --alter
+
+The --alter option should be the portion of an ALTER TABLE statement after the table name.
+
+Example:
+
+with an alter table of:
+
+    ALTER TABLE foo ADD COLUMN bar INTEGER(11)
+
+The options to directly apply the above alter using the tool would be:
+
+    mysql-sharded-schema-change --table 'foo' --alter 'ADD COLUMN bar INTEGER(11)' --mode direct --execute
+
+### Options
+
+      -t TABLE, --table TABLE
+                            Name of table to alter
+      --alter ALTER         Alter operations portion of an alter statement similar
+                            to pt-online-schema-change, eg: "ADD COLUMN foo
+                            VARCHAR(10) AFTER bar, DROP COLUMN baz, ENGINE=InnoDB"
+      --type alter
+                            Type of operation to run
+      -n CONCURRENCY, --concurrency CONCURRENCY
+                            Number of concurrent operations to run on each
+                            database node
+      --ignore-errors       Ignore errors on single shards and continue with the
+                            DDL operation. Shards that had errors will be listed
+                            in a report at the end of the run.
+      --shards SHARD_NAME [SHARD_NAME ...]
+                            Space separated list of shards to run against (used to
+                            filter the global list from locator DB). Used for
+                            rolling back or resuming changes that have only been
+                            partially applied
+      --dry-run             Perform a dry run of the operation on the model shard.
+                            No direct DDL change statements will be run, and pt-
+                            osc will be run with --dry-run
+      --execute             execute the operation
+
+### Options for pt-online-schema-change
+These options get passed to all pt-online-schema-change processes when
+performing an online mode alter, refer to the documentation for pt-online-schema-
+change. Some or all of theses options (and more) may be defined in the settings file as defaults for pt-osc.
+
+      --check-interval CHECK_INTERVAL
+      --chunk-size CHUNK_SIZE
+      --chunk-size-limit CHUNK_SIZE_LIMIT
+      --chunk-time CHUNK_TIME
+      --drop-new-table
+      --nodrop-new-table
+      --drop-old-table
+      --nodrop-old-table
+      --max-lag MAX_LAG
+      --progress PROGRESS
+      --recursion-method RECURSION_METHOD
+      --recurse RECURSE
+      --max-load MAX_LOAD
+      --chunk-index CHUNK_INDEX
+      --chunk-index-columns CHUNK_INDEX_COLUMNS
+
+
+
+## Create Table
+
+Table creation is executed using direct queries and requires a CREATE TABLE statement to be provided.
+
+Options required: --type=create, --create
+
+Example:
+
+With a create statement of
+
+    CREATE TABLE `test1` (
+      `id` int(11) NOT NULL AUTO_INCREMENT,
+      `random` varchar(500) DEFAULT NULL,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8
+
+The options to use the tool to create the table in all shards would be:
+
+    mysql-sharded-schema-change --type create --execute --create '
+    CREATE TABLE `test1` (
+      `id` int(11) NOT NULL AUTO_INCREMENT,
+      `random` varchar(500) DEFAULT NULL,
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8'
+
+
+### Options
+
+      -t TABLE, --table TABLE
+                            Name of table to alter
+      --create CREATE_STATEMENT
+                            Create table statement to use for create type
+      --type create
+                            Type of operation to run
+      -n CONCURRENCY, --concurrency CONCURRENCY
+                            Number of concurrent operations to run on each
+                            database node
+      --ignore-errors       Ignore errors on single shards and continue with the
+                            DDL operation. Shards that had errors will be listed
+                            in a report at the end of the run.
+      --shards SHARD_NAME [SHARD_NAME ...]
+                            Space separated list of shards to run against (used to
+                            filter the global list from locator DB). Used for
+                            rolling back or resuming changes that have only been
+                            partially applied
+      --execute             execute the operation
+
+
+
+## Drop Table
+
+Table drops are executed using a direct query and only require a table name
+
+Options required: --type=drop, --table
+
+Example:
+
+To drop table "foo" in all shards:
+
+    mysql-sharded-schema-change --type drop --table foo --execute
+
+### Options
+
+      -t TABLE, --table TABLE
+                            Name of table to alter
+      --type drop
+                            Type of operation to run
+      -n CONCURRENCY, --concurrency CONCURRENCY
+                            Number of concurrent operations to run on each
+                            database node
+      --ignore-errors       Ignore errors on single shards and continue with the
+                            DDL operation. Shards that had errors will be listed
+                            in a report at the end of the run.
+      --shards SHARD_NAME [SHARD_NAME ...]
+                            Space separated list of shards to run against (used to
+                            filter the global list from locator DB). Used for
+                            rolling back or resuming changes that have only been
+                            partially applied
+      --execute             execute the operation
+
+
+
+## Script
+
+The script type operation takes a path to a sql script file that will be executed in every shard.
+
+ * Note: The script support is very basic currently, and due to limitations of python's mysql adapter the script has to be split into
+ its separate queries. The breaking up of the script is done by splitting the contents of the file on semicolons rather than query parsing, so be careful that
+ you do not have semicolons in the script that are not query separators. I plan to reimplement the script handling to use the mysql
+ command line client to execute them in the future.
+
+Example:
+
+    mysql-sharded-schema-change --type script --script /tmp/some_script.sql --execute
+
+### Options
+
+      --script SCRIPT_PATH  Run provided SQL script against all shards
+      --type script
+                            Type of operation to run
+      -n CONCURRENCY, --concurrency CONCURRENCY
+                            Number of concurrent operations to run on each
+                            database node
+      --ignore-errors       Ignore errors on single shards and continue with the
+                            DDL operation. Shards that had errors will be listed
+                            in a report at the end of the run.
+      --shards SHARD_NAME [SHARD_NAME ...]
+                            Space separated list of shards to run against (used to
+                            filter the global list from locator DB). Used for
+                            rolling back or resuming changes that have only been
+                            partially applied
+      --execute             execute the operation
+
+
+
+
+# Full Options List
+
+## Options for mysql-sharded-schema-change
+
+      -h, --help            show this help message and exit
+      -t TABLE, --table TABLE
+                            Name of table to alter
+      --alter ALTER         Alter operations portion of an alter statement similar
+                            to pt-online-schema-change, eg: "ADD COLUMN foo
+                            VARCHAR(10) AFTER bar, DROP COLUMN baz, ENGINE=InnoDB"
+      --create CREATE_STATEMENT
+                            Create table statement to use for create type
+      --script SCRIPT_PATH  Run provided SQL script against all shards
+      -n CONCURRENCY, --concurrency CONCURRENCY
+                            Number of concurrent operations to run on each
+                            database node
+      --type {alter,create,drop,script}
+                            Type of operation to run
+      --mode {direct,online}
+                            Set the mode of alter to run the alter directly or use
+                            pt-online-schema-change to perform online alter
+                            (default defined in settings)
+      --ignore-errors       Ignore errors on single shards and continue with the
+                            DDL operation. Shards that had errors will be listed
+                            in a report at the end of the run.
+      --shards SHARD_NAME [SHARD_NAME ...]
+                            Space separated list of shards to run against (used to
+                            filter the global list from locator DB). Used for
+                            rolling back or resuming changes that have only been
+                            partially applied
+      --dry-run             Perform a dry run of the operation on the model shard.
+                            No direct DDL change statements will be run, and pt-
+                            osc will be run with --dry-run
+      --execute             execute the operation
+
+## Options that get passed onto pt-online-schema-change
+
+      options get passed to all pt-online-schema-change processes when
+      performing online alter, refer to the documentation for pt-online-schema-
+      change. Some or all of theses options may be defined in the settings file.
+
+      --check-interval CHECK_INTERVAL
+      --chunk-size CHUNK_SIZE
+      --chunk-size-limit CHUNK_SIZE_LIMIT
+      --chunk-time CHUNK_TIME
+      --drop-new-table
+      --nodrop-new-table
+      --drop-old-table
+      --nodrop-old-table
+      --max-lag MAX_LAG
+      --progress PROGRESS
+      --recursion-method RECURSION_METHOD
+      --recurse RECURSE
+      --max-load MAX_LOAD
+      --chunk-index CHUNK_INDEX
+      --chunk-index-columns CHUNK_INDEX_COLUMNS
+
+
+# Error Handling
+mysql-sharded-schema-change will keep track of the shards that it has run the current operation against, the success or failure
+of the operation and will provide this to you at the end of the run.
+
+Successful run against all shards will output:
+
+    DDL operation successfully completed on all shards
+
+If any shards have errors or the script is interrupted the following will be output (along with detailed error states)
+
+    DDL operation did not complete successfully on all shards
+
+If there is any errors with the run, you will get output telling you which shards were successful, which had errors, which were skipped, and which
+ones are in a state that is unknown, as well as the information that is known about the errors that occurred.
+
+In an error state, one or more of the following output blocks may exist:
+
+### Errors received
+This block give you the information that is known about what the errors were on the shards. Unfortunately, in the case of an
+online alter, this is limited to the code that pt-online-schema-change exited with, so you will have to go back and read through
+the stdout/stderr output from the pt-online-schema-change threads (this is all shipped back to main thread and output to stdout)
+
+Online operation example:
+
+    Errors received
+    shard_6: pt-online-schema-change exited with exit code 255
+    shard_0: pt-online-schema-change exited with exit code 255
+
+Direct operation example:
+
+    Errors received
+    shard_6: (1146, "Table 'shard_6.test1' doesn't exist")
+    shard_0: (1146, "Table 'shard_0.test1' doesn't exist")
+
+
+### Shards that had errors
+
+    The following shards had errors
+    -------------------------------
+    shard_6 shard_0
+    -------------------------------
+
+These are shards that had an error processing the schema change. If you are using --ignore_errors, this list is very useful for going
+back and reapplying the schema change to tables that had issues. If you do wish to reprocess these shards, you can copy the list of
+shards provided here and paste them as the argument for the --shards option to another call to mysql-sharded-schema-change
+
+    mysql-sharded-schema-change --shards shard_6 shard_0  ....
+
+
+### Shards that completed successfully
+
+    The following shards completed successfully (this is the list to use if rollback is needed)
+    -------------------------------------------------------------------------------------------
+    shard_2 shard_1 model_shard
+    -------------------------------------------------------------------------------------------
+
+This is the list of shards that were successfully altered. If you do need to roll back this is the list that you will pass
+to --shards to do your rollback operation.
+
+### Unknown state shards
+
+    The following shards are in an unknown state due to abort
+    ---------------------------------------------------------
+    shard_7 shard_5
+    ---------------------------------------------------------
+
+Unknown state happens when the script is interrupted with CTRL+C, and you should check on any shards that are
+in this state after interrupting a run. The reason these are unknown is because if you are running an online operation then pt-online-schema-change
+may have left a temporary table and triggers behind when it exited, and if you are running a direct operation and CTRL+C more than
+once (the first CTRL+C sets a flag to initiate shutdown, but does not kill the mysql connections) then the mysql
+connections are killed and the queries abandoned, but the actual queries may or may not have actually stop and roll back as the server
+may continue running the queries. Once you have verified the state and cleaned up as necessary, you can pass this list of shards to
+the --shards option to attempt to apply the schema change to them again or do a roll back operation.
+
+### Shards not processed
+
+    DDL operation was not attempted on the following shards
+    -------------------------------------------------------
+    shard_3 shard_4
+    -------------------------------------------------------
+
+This is the list of shards that were skipped due to an error (without setting --ignore-errors) or user interruption and have no schema changes applied. If you wish to
+continue operation then you can pass this list of shards to the --shards option to continue the schema change operation on the list of shards.
