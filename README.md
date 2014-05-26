@@ -380,10 +380,42 @@ mysql-sharded-schema-auditor
 
 Tool for auditing all of the shard schemas to check if they match the model shard.
 
+This tool will identify:
+
+* missing or extraneous tables
+* missing or extraneous columns in tables
+* column definitions that do not match the model shard schema definitions
+
 # Configuration
 The only extra configuration that this tool requires is AUDITOR_LOGDB_CREDENTIALS to be configured and AUDITOR_LOGGING_ENABLED set to
 True if you want to log the results of auditor passes to a database table, otherwise, the tool will use all of the same configurations
 that the mysql-sharded-schema-change tool uses.
+
+# Operation
+Standard operation of the tool is to run it with no options, but you can provide host, port and/or list of shards for the tool to audit
+
+    mysql-sharded-schema-auditor
+
+Example output:
+
+    TYPE COLUMN ERROR localhost0:3306 shard_0.foonew2.random2 defined as int(11) but should be varchar(10)
+    TYPE COLUMN ERROR localhost0:3306 shard_0.test2.random2 defined as int(11) but should be varchar(10)
+    TYPE COLUMN ERROR localhost0:3306 shard_0.foonew.random2 defined as int(11) but should be varchar(10)
+    EXTRANEOUS TABLE ERROR localhost0:3306 shard_0.shard_0
+    EXTRANEOUS TABLE ERROR localhost0:3306 shard_1.shard_1
+    EXTRANEOUS TABLE ERROR localhost1:3306 shard_2.shard_2
+    MISSING COLUMN ERROR localhost1:3306 shard_3.foonew2.random2 not found
+    MISSING COLUMN ERROR localhost1:3306 shard_3.test2.random2 not found
+    MISSING COLUMN ERROR localhost1:3306 shard_3.foonew.random2 not found
+    EXTRANEOUS TABLE ERROR localhost1:3306 shard_3.shard_3
+    MISSING TABLE ERROR localhost0:3306 shard_4.test1 not found
+    MISSING TABLE ERROR localhost0:3306 shard_4.foo not found
+    MISSING TABLE ERROR localhost0:3306 shard_5.test1 not found
+    MISSING TABLE ERROR localhost0:3306 shard_5.foo not found
+    MISSING TABLE ERROR localhost1:3306 shard_6.test1 not found
+    MISSING TABLE ERROR localhost1:3306 shard_6.foo not found
+    MISSING TABLE ERROR localhost1:3306 shard_7.test1 not found
+    MISSING TABLE ERROR localhost1:3306 shard_7.foo not found
 
 # Options
 
