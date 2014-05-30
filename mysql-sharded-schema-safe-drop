@@ -1,0 +1,213 @@
+#!/usr/bin/env python
+import argparse
+import MySQLdb
+import settings
+import prettytable
+from warnings import filterwarnings, resetwarnings
+
+
+def output_formatted(table_title, column_headers, data):
+    def tstr(x):
+        if x is not None:
+            return str(x)
+        else:
+            # gives some value for output so that command line tools like cut and awk work more easily
+            return "---"
+
+    print "\n\n{0}:".format(table_title)
+    table = prettytable.PrettyTable(column_headers)
+    table.align = 'l'
+    for row in data:
+        table.add_row(map(tstr, row))
+    print table
+    print "\n\n"
+
+def split_host_port(hoststring):
+    return hoststring.split(':')
+
+def command_list(args, shardmap, hostmap):
+    if args.list == 'hosts':
+        output_formatted('Hosts', ['Host', 'Port'], map(split_host_port, hostmap.keys()))
+    elif args.list == 'active':
+        if not args.host or not args.port:
+            print "Host and Port must be provided to list active shards"
+            exit()
+        h = args.host + ':' + str(args.port)
+        if h not in hostmap:
+            print h + " not in locator table"
+            exit()
+        print "\nActive Shards on " + h + "\n\n"
+        for x in hostmap[h]:
+            print x,
+        print "\n"
+
+    elif args.list == 'inactive':
+        if not args.host or not args.port:
+            print "Host and Port must be provided to list inactive shards"
+            exit()
+        h = args.host + ':' + str(args.port)
+        if h not in hostmap:
+            print h + " not in locator table"
+            exit()
+        sharddbconn = MySQLdb.connect(host=args.host,
+                             port=args.port,
+                             user=settings.SHARD_DB_CREDENTIALS['user'],
+                             passwd=settings.SHARD_DB_CREDENTIALS['password'],
+                             db='')
+        sharddb = sharddbconn.cursor()
+        sharddb.execute('show databases')
+        rows = sharddb.fetchall()
+        print "\nInactive Shards on " + h + "\n\n"
+        for row in rows:
+            if row[0] in shardmap and shardmap[row[0]] != h:
+                print row[0],
+        print "\n"
+
+
+
+    elif args.list == 'all':
+        if not args.host or not args.port:
+            print "Host and Port must be provided to list shards"
+            exit()
+        h = args.host + ':' + str(args.port)
+        if h not in hostmap:
+            print h + " not in locator table"
+            exit()
+        sharddbconn = MySQLdb.connect(host=args.host,
+                             port=args.port,
+                             user=settings.SHARD_DB_CREDENTIALS['user'],
+                             passwd=settings.SHARD_DB_CREDENTIALS['password'],
+                             db='')
+        sharddb = sharddbconn.cursor()
+        sharddb.execute('show databases')
+        rows = sharddb.fetchall()
+        print "\nAll Shards on " + h + "\n\n"
+        for row in rows:
+            if row[0] in shardmap:
+                print row[0],
+        print "\n"
+
+
+def drop_schemas(args, shardmap, hostmap):
+    sharddbconn = MySQLdb.connect(host=args.host,
+                         port=args.port,
+                         user=settings.SHARD_DB_CREDENTIALS['user'],
+                         passwd=settings.SHARD_DB_CREDENTIALS['password'],
+                         db='')
+    sharddb = sharddbconn.cursor()
+
+    if not args.shards:
+        print "List of shards to drop must be provided"
+        return
+
+    for shard in args.shards:
+        ok_to_drop = True
+        hostport = split_host_port(shardmap[shard])
+        activedbconn = MySQLdb.connect(host=hostport[0],
+                             port=int(hostport[1]),
+                             user=settings.SHARD_DB_CREDENTIALS['user'],
+                             passwd=settings.SHARD_DB_CREDENTIALS['password'],
+                             db='')
+        activedb = sharddbconn.cursor()
+
+        filterwarnings('ignore', category = MySQLdb.Warning)
+        activedb.execute("drop database if exists __mysql_sharded_schema_safe_drop")
+        activedbconn.commit()
+        sharddb.execute("create database if not exists __mysql_sharded_schema_safe_drop")
+        sharddbconn.commit()
+        activedb.execute("show databases")
+        rows = activedb.fetchall()
+        sharddb.execute("drop database if exists __mysql_sharded_schema_safe_drop")
+        sharddbconn.commit()
+        resetwarnings()
+        for row in rows:
+            if row[0] == '__mysql_sharded_schema_safe_drop':
+                print "Hosts {0}:{1} and {2}:{3} appear to be the same host. Not dropping schema {4} from {0}:{1} since it is active on {2}:{3}".format(args.host, args.port, hostport[0], hostport[1], shard)
+                ok_to_drop = False
+
+        if shardmap[shard] == args.host + ':' + str(args.port):
+            print "Shard {0} is active on {1}:{2}, skipping..."
+            ok_to_drop = False
+
+        if not ok_to_drop:
+            continue
+
+        sharddb.execute("show tables in {0}".format(shard))
+        rows = sharddb.fetchall()
+        for row in rows:
+            table = row[0]
+            print "Dropping table {0}.{1}".format(shard, table)
+            sql = 'DROP TABLE `{0}`.`{1}`'.format(shard, table)
+            if args.execute:
+                sharddb.execute(sql)
+                sharddbconn.commit()
+            else:
+                print sql
+
+        print "Dropping database {0}".format(shard)
+        sql = 'DROP DATABASE `{0}`'.format(shard)
+        if args.execute:
+            sharddb.execute(sql)
+            sharddbconn.commit()
+        else:
+            print sql
+
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-H', '--host', help="Hostname to drop shards on")
+    parser.add_argument('-p', '--port', type=int, help="Port for the host to drop shards")
+    parser.add_argument('--shards', nargs='+', help="Space separate list of shards to drop")
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-l', '--list', choices=['active', 'inactive', 'all', 'hosts'], help='List shards on a host')
+    group.add_argument('--drop', help='Drop the listed shards', action='store_true')
+    parser.add_argument('--execute', action='store_true', help='This is required to actually execute the drops; otherwise, you will get SQL output for the table drops, but they will not be executed')
+
+    args = parser.parse_args()
+
+
+    dbconn = MySQLdb.connect(host=settings.LOCATOR_DB_CREDENTIALS['host'],
+                         port=settings.LOCATOR_DB_CREDENTIALS['port'],
+                         user=settings.LOCATOR_DB_CREDENTIALS['user'],
+                         passwd=settings.LOCATOR_DB_CREDENTIALS['password'],
+                         db=settings.LOCATOR_DB_CREDENTIALS['dbname'])
+    db = dbconn.cursor()
+
+    whereclause = ''
+    if settings.LOCATOR_TABLE['where_clause']:
+        whereclause = " " + settings.LOCATOR_TABLE['where_clause']
+
+    sql = "select " + settings.LOCATOR_TABLE['shardname_col'] + ", " + settings.LOCATOR_TABLE['host_col'] + ", " \
+               + settings.LOCATOR_TABLE['port_col'] + " from " + settings.LOCATOR_TABLE['tablename'] + whereclause
+    db.execute(sql)
+    rows = db.fetchall()
+    hostmap = {}
+    shardmap = {}
+    if not rows:
+        print "No shards were found using the following query: " + sql
+        exit()
+    for row in rows:
+        h = row[1] + ':' + str(row[2])
+        if h not in hostmap:
+            hostmap[h] = []
+        hostmap[h].append(row[0])
+        shardmap[row[0]] = h
+
+    if args.shards:
+        for shard in args.shards:
+            if shard not in shardmap:
+                print "Shard {0} is not in the locator table, please verify the available shards".format(shard)
+                exit()
+
+
+
+    if args.list:
+        command_list(args, shardmap, hostmap)
+        exit()
+    elif args.drop:
+        drop_schemas(args, shardmap, hostmap)
+
+
+if __name__ == "__main__":
+    main()
