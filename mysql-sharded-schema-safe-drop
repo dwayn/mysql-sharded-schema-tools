@@ -126,7 +126,7 @@ def drop_schemas(args, shardmap, hostmap):
                 ok_to_drop = False
 
         if shardmap[shard] == args.host + ':' + str(args.port):
-            print "Shard {0} is active on {1}:{2}, skipping..."
+            print "Shard {0} is active on {1}:{2}, skipping...".format(shard, args.host, args.port)
             ok_to_drop = False
 
         if not ok_to_drop:
@@ -157,8 +157,8 @@ def drop_schemas(args, shardmap, hostmap):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-H', '--host', help="Hostname to drop shards on")
-    parser.add_argument('-p', '--port', type=int, help="Port for the host to drop shards")
-    parser.add_argument('--shards', nargs='+', help="Space separate list of shards to drop")
+    parser.add_argument('-p', '--port', type=int, help="Port for the host to drop shards", default=3306)
+    parser.add_argument('--shards', nargs='+', help="Space separated list of one or more shards to drop", metavar='SHARD')
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-l', '--list', choices=['active', 'inactive', 'all', 'hosts'], help='List shards on a host')
     group.add_argument('--drop', help='Drop the listed shards', action='store_true')

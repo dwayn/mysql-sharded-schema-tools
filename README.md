@@ -1,13 +1,47 @@
-mysql-sharded-schema-change
+mysql-sharded-schema-tools
 ===========================
 
-Multithreaded tool for applying DDL changes to sharded mysql environments
-
-
-Source URL: https://github.com/dwayn/mysql-sharded-schema-change
+Source URL: https://github.com/dwayn/mysql-sharded-schema-tools
 
 # Introduction
+This is a set of tools intended to aid in managing schema changes and auditing of schema in sharded mysql environments.
 
+## Tools
+* mysql-sharded-schema-change
+ * Multithreaded tool to apply DDL changes to all shards while allowing control of concurrency per host
+* mysql-sharded-schema-auditor
+ * Tool to audit the schema definitions of all shards, compare them against the model shard and show any differences
+* mysql-sharded-schema-safe-drop
+ * Tool to drop inactive shards on hosts that brings protections against dropping active shards
+
+
+## Architecture Requirements
+There are a few assumptions that have been made with these tools.
+
+1. Currently it is required that the mysql credentials are the same for all shards
+2. Each shard is contained in a separate schema
+3. A locator table exists that can be used to get the mapping of shard to host:port where it is located
+4. There exists an extra schema that acts as the model shard (this shard will be modified first, and is the shard used for dry run operations)
+5. If you wish to do online alters, pt-online-schema-change must be installed on the host running the tool
+
+
+# Installation & Configuration
+* Clone this git repo
+* pip install -r requirements.txt (this will either need to be done as root or within a virtualenv)
+ * Currently the only requirements are mysql-python, argparse, and prettytable
+* Copy sample_settings.py to settings.py
+ * settings.py is in the .gitignore, this will allow you to update the code with a git pull without stomping on your config file
+* Edit the credentials for the locator DB, shard DBs, and model shard DB
+* Edit the LOCATOR_TABLE variables to allow the tool to query the mapping of shard to host/port
+* Set the path to pt-online-schema-change if you intend to do online alters
+* Suggested: Add the directory containing this repo to your path for convenience in using the tools
+
+
+------------------------------------
+
+# mysql-sharded-schema-change
+
+## Introduction
 This script is designed to aid in applying schema changes to sharded MySQL environments. It will run the schema changes in parallel
 and allows control of the number of processes per server. Internally this is implemented using multiprocessing and a queue per
 unique host/port of changes to make.
@@ -24,30 +58,11 @@ Operations currently supported:
  command line client to execute them in the future.
 
 
-There are a few assumptions that have been made with this tool.
-
-1. Currently it is required that the mysql credentials are the same for all shards
-2. Each shard is contained in a separate schema
-3. There exists an extra schema that acts as the model shard (this shard will be modified first, and is the shard used for dry run operations)
-4. A locator table exists that can be used to get the mapping of shard to host:port where it is located
-5. If you wish to do online alters, pt-online-schema-change must be installed on the host running the tool
 
 
-# Installation & Configuration
-* Clone this git repo
-* pip install -r requirements.txt (this will either need to be done as root or within a virtualenv)
- * Currently the only requirements are mysql-python and argparse
-* Copy sample_settings.py to settings.py
- * settings.py is in the .gitignore, this will allow you to update the code with a git pull without stomping on your config file
-* Edit the credentials for the locator DB, shard DBs, and model shard DB
-* Edit the LOCATOR_TABLE variables to allow the tool to query the mapping of shard to host/port
-* Set the path to pt-online-schema-change if you intend to do online alters
-* Suggested: Add the directory that mysql-sharded-schema-change is in to your path for convenience
+## Operations
 
-# Operations
-
-## Alter Table
-
+### Alter Table
 Table alters are supported as direct queries or as online alters using pt-online-schema-change. Alters support --dry-run option for both
 online and direct mode, and the dry-run will be run against the model shard.
 
@@ -65,7 +80,7 @@ The options to directly apply the above alter using the tool would be:
 
     mysql-sharded-schema-change --table 'foo' --alter 'ADD COLUMN bar INTEGER(11)' --mode direct --execute
 
-### Options
+#### Options
 
       -t TABLE, --table TABLE
                             Name of table to alter
@@ -90,7 +105,7 @@ The options to directly apply the above alter using the tool would be:
                             osc will be run with --dry-run
       --execute             execute the operation
 
-### Options for pt-online-schema-change
+#### Options for pt-online-schema-change
 These options get passed to all pt-online-schema-change processes when
 performing an online mode alter, refer to the documentation for pt-online-schema-
 change. Some or all of theses options (and more) may be defined in the settings file as defaults for pt-osc.
@@ -113,8 +128,7 @@ change. Some or all of theses options (and more) may be defined in the settings 
 
 
 
-## Create Table
-
+### Create Table
 Table creation is executed using direct queries and requires a CREATE TABLE statement to be provided.
 
 Options required: --type=create, --create
@@ -139,7 +153,7 @@ The options to use the tool to create the table in all shards would be:
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8'
 
 
-### Options
+#### Options
 
       -t TABLE, --table TABLE
                             Name of table to alter
@@ -162,8 +176,7 @@ The options to use the tool to create the table in all shards would be:
 
 
 
-## Drop Table
-
+### Drop Table
 Table drops are executed using a direct query and only require a table name
 
 Options required: --type=drop, --table
@@ -174,7 +187,7 @@ To drop table "foo" in all shards:
 
     mysql-sharded-schema-change --type drop --table foo --execute
 
-### Options
+#### Options
 
       -t TABLE, --table TABLE
                             Name of table to alter
@@ -195,8 +208,7 @@ To drop table "foo" in all shards:
 
 
 
-## Script
-
+### Script
 The script type operation takes a path to a sql script file that will be executed in every shard.
 
  * Note: The script support is very basic currently, and due to limitations of python's mysql adapter the script has to be split into
@@ -208,7 +220,7 @@ Example:
 
     mysql-sharded-schema-change --type script --script /tmp/some_script.sql --execute
 
-### Options
+#### Options
 
       --script SCRIPT_PATH  Run provided SQL script against all shards
       --type script
@@ -229,9 +241,9 @@ Example:
 
 
 
-# Full Options List
+## Full Options List
 
-## Options for mysql-sharded-schema-change
+### Options for mysql-sharded-schema-change
 
       -h, --help            show this help message and exit
       -t TABLE, --table TABLE
@@ -264,7 +276,7 @@ Example:
                             osc will be run with --dry-run
       --execute             execute the operation
 
-## Options that get passed onto pt-online-schema-change
+### Options that get passed onto pt-online-schema-change
 
       options get passed to all pt-online-schema-change processes when
       performing online alter, refer to the documentation for pt-online-schema-
@@ -287,7 +299,7 @@ Example:
       --chunk-index-columns CHUNK_INDEX_COLUMNS
 
 
-# Error Handling
+## Error Handling
 mysql-sharded-schema-change will keep track of the shards that it has run the current operation against, the success or failure
 of the operation and will provide this to you at the end of the run.
 
@@ -304,7 +316,7 @@ ones are in a state that is unknown, as well as the information that is known ab
 
 In an error state, one or more of the following output blocks may exist:
 
-### Errors received
+#### Errors received
 This block give you the information that is known about what the errors were on the shards. Unfortunately, in the case of an
 online alter, this is limited to the code that pt-online-schema-change exited with, so you will have to go back and read through
 the stdout/stderr output from the pt-online-schema-change threads (this is all shipped back to main thread and output to stdout)
@@ -322,7 +334,7 @@ Direct operation example:
     shard_0: (1146, "Table 'shard_0.test1' doesn't exist")
 
 
-### Shards that had errors
+#### Shards that had errors
 
     The following shards had errors
     -------------------------------
@@ -336,7 +348,7 @@ shards provided here and paste them as the argument for the --shards option to a
     mysql-sharded-schema-change --shards shard_6 shard_0  ....
 
 
-### Shards that completed successfully
+#### Shards that completed successfully
 
     The following shards completed successfully (this is the list to use if rollback is needed)
     -------------------------------------------------------------------------------------------
@@ -346,7 +358,7 @@ shards provided here and paste them as the argument for the --shards option to a
 This is the list of shards that were successfully altered. If you do need to roll back this is the list that you will pass
 to --shards to do your rollback operation.
 
-### Unknown state shards
+#### Unknown state shards
 
     The following shards are in an unknown state due to abort
     ---------------------------------------------------------
@@ -361,7 +373,7 @@ connections are killed and the queries abandoned, but the actual queries may or 
 may continue running the queries. Once you have verified the state and cleaned up as necessary, you can pass this list of shards to
 the --shards option to attempt to apply the schema change to them again or do a roll back operation.
 
-### Shards not processed
+#### Shards not processed
 
     DDL operation was not attempted on the following shards
     -------------------------------------------------------
@@ -372,16 +384,12 @@ This is the list of shards that were skipped due to an error (without setting --
 continue operation then you can pass this list of shards to the --shards option to continue the schema change operation on the list of shards.
 
 
+----------------------------------------------------
 
 
-===============================================================================
+# mysql-sharded-schema-auditor
 
-
-
-
-mysql-sharded-schema-auditor
-============================
-
+## Introduction
 Tool for auditing all of the shard schemas to check if they match the model shard.
 
 This tool will identify:
@@ -429,3 +437,82 @@ Example output:
       --shards SHARDS [SHARDS ...]
                             space separate list of shards to audit
 
+
+
+
+
+# mysql-sharded-schema-safe-drop
+
+## Introduction
+The original design for this was  based on an environment where multiple shards exist on a single mysql host and the operation to
+scale out involves setting up a replica, diverting read/write traffic for some number of the shards to the replica, breaking
+replication and dropping the shards that are no longer active on each host. This tool is designed to provide a safety wrapper
+for dropping the inactive shards from databases that will not allow you to drop the active shards (as determined by the locator table).
+
+
+### Safety Features
+* When attempting to drop a shard it will verify that the host:port which you are trying to drop the shard from is not in the locator as the
+active host for the shard
+* Ensures that an active shard cannot be dropped inadvertently due to a scenario such as if there is more than one hostname that maps to the
+same mysqldb in the locator table.
+ * Example: There is one host, host_a", and in this host there is 2 shards, shard_1 and shard_2, there is also a second hostname, host_b, that
+   routes to host_a. In the shard locator table there is an entry that maps shard_1 to host_a and shard_2 to host_b. With this configuration,
+   conceivably shard_1 looks like an inactive shard on host_b and shard_2 looks like an inactive shard on host_a, but dropping would be bad in
+   this case and is protected against
+* This tool is not intended to provide functionality for dropping any schemas other than the shard schemas nor is it intended to be used
+  to drop databases on hosts that are not in the locator table. Thus it will not allow you to do any operations on hosts that are not in
+  your active configuration. (why would you need to do all these safety checks if the host is completely inactive?)
+
+Functions exposed:
+* List all the hosts in the locator table that are hosting active shards
+* List the active, inactive or all shards on a host
+* Perform complete run of shard drops without executing the SQL statements to drop tables/schemas and print out statements that will be run
+* Perform complete run of shard drops
+
+
+## Configuration
+No extra configuration is needed for this tool beyond the standard configuration for the mysql-sharded-schema-change tool.
+
+## Operations
+
+### List hosts
+Lists all of the hosts that are in the locator table with active shards.
+
+    mysql-sharded-schema-safe-drop --list hosts
+
+### List Shards
+Active shards (shards on the host that are actively routed to by locator table)
+
+    mysql-sharded-schema-safe-drop --host HOSTNAME --port PORT --list
+
+Inactive shards (shards on the host that are not actively routed to by locator table)
+
+    mysql-sharded-schema-safe-drop --host HOSTNAME --port PORT --list
+
+All shards
+
+    mysql-sharded-schema-safe-drop --host HOSTNAME --port PORT --list
+
+### Drop Shards
+Test run
+
+    mysql-sharded-schema-safe-drop --host HOSTNAME --port PORT --drop --shards shard_1 shard_2 shard_3
+
+Execution run (adding the --execute flag causes the drops to be executed)
+
+    mysql-sharded-schema-safe-drop --host HOSTNAME --port PORT --drop --execute --shards shard_1 shard_2 shard_3
+
+
+## Options
+
+      -h, --help            show this help message and exit
+      -H HOST, --host HOST  Hostname to drop shards on
+      -p PORT, --port PORT  Port for the host to drop shards
+      --shards SHARD [SHARD ...]
+                            Space separated list of one or more shards to drop
+      -l {active,inactive,all,hosts}, --list {active,inactive,all,hosts}
+                            List shards on a host
+      --drop                Drop the listed shards
+      --execute             This is required to actually execute the drops;
+                            otherwise, you will get SQL output for the table
+                            drops, but they will not be executed
