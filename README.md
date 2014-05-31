@@ -7,11 +7,11 @@ Source URL: https://github.com/dwayn/mysql-sharded-schema-tools
 This is a set of tools intended to aid in managing schema changes and auditing of schema in sharded mysql environments.
 
 ## Tools
-* mysql-sharded-schema-change
+* [mysql-sharded-schema-change](#mysql-sharded-schema-change)
  * Multithreaded tool to apply DDL changes to all shards while allowing control of concurrency per host
-* mysql-sharded-schema-auditor
+* [mysql-sharded-schema-auditor](#mysql-sharded-schema-auditor)
  * Tool to audit the schema definitions of all shards, compare them against the model shard and show any differences
-* mysql-sharded-schema-safe-drop
+* [mysql-sharded-schema-safe-drop](#mysql-sharded-schema-safe-drop)
  * Tool to drop inactive shards on hosts that brings protections against dropping active shards
 
 
