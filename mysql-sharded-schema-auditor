@@ -9,9 +9,12 @@ def main():
     parser.add_argument('-H', '--host', help="Hostname to filter all shard hosts")
     parser.add_argument('-p', '--port', help="Port to filter all shard hosts")
     parser.add_argument('--shards', nargs='+', help="space separate list of shards to audit")
+    parser.add_argument('--model', help='model shard schema to override the config')
 
     args = parser.parse_args()
 
+    if args.model:
+        settings.MODEL_SHARD_DB_CREDENTIALS['dbname'] = args.model
 
     dbconn = MySQLdb.connect(host=settings.LOCATOR_DB_CREDENTIALS['host'],
                          port=settings.LOCATOR_DB_CREDENTIALS['port'],
