@@ -49,7 +49,7 @@ class ShardAuditor:
         self.debug = enabled
 
 
-    def connect(self, user, password, host, port, database = ""):
+    def connect(self, user, password, host, port, database=""):
         db = MySQLdb.connect(host=host, port=port, user=user, passwd=password, db=database)
         self.db = db.cursor()
 
@@ -86,8 +86,9 @@ class ShardAuditor:
         try:
             self.connect(user, password, host, port)
             hostconfig = {}
-            if host + ":" + str(port) in CONFIG['hosts']:
-                hostconfig = CONFIG['hosts'][host + ":" + str(port)]
+            if 'hosts' in CONFIG:
+                if host + ":" + str(port) in CONFIG['hosts']:
+                    hostconfig = CONFIG['hosts'][host + ":" + str(port)]
             hostconfig["host"] = host
             hostconfig["port"] = port
 
@@ -121,8 +122,9 @@ class ShardAuditor:
         try:
             self.connect(user, password, host, port)
             hostconfig = {}
-            if host + ":" + str(port) in CONFIG['hosts']:
-                hostconfig = CONFIG['hosts'][host + ":" + str(port)]
+            if 'hosts' in CONFIG:
+                if host + ":" + str(port) in CONFIG['hosts']:
+                    hostconfig = CONFIG['hosts'][host + ":" + str(port)]
             hostconfig["host"] = host
             hostconfig["port"] = port
 
