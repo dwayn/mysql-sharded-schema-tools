@@ -21,7 +21,10 @@ There are a few assumptions that have been made with these tools.
 1. Currently it is required that the mysql credentials are the same for all shards
 2. Each shard is contained in a separate schema
 3. A locator table exists that can be used to get the mapping of shard to host:port where it is located
-4. There exists an extra schema that acts as the model shard (this shard will be modified first, and is the shard used for dry run operations)
+4. There exists an extra schema that acts as the model shard
+ * Modified first when doing a schema change to allow a point for the tool to bail out if there is an issue before attempting live nodes
+ * This is the shard used for dry run operations for schema changes
+ * Used by the auditor as the model schema to compare all of the shard schemas against
 5. If you wish to do online alters, pt-online-schema-change must be installed on the host running the tool
 
 
