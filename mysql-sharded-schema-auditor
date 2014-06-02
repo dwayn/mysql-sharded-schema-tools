@@ -50,7 +50,7 @@ def main():
             continue
         if args.shards and shard not in args.shards:
             continue
-
+        print "AUDITING: " + shard
         auditor.audit_schema(settings.SHARD_DB_CREDENTIALS['user'], settings.SHARD_DB_CREDENTIALS['password'], host, shard, port)
 
 
