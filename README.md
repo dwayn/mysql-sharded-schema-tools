@@ -407,7 +407,8 @@ True if you want to log the results of auditor passes to a database table, other
 that the mysql-sharded-schema-change tool uses.
 
 ## Operation
-Standard operation of the tool is to run it with no options, but you can provide host, port and/or list of shards for the tool to audit
+Standard operation of the tool is to run it with no options, but you can provide host, port and/or list of shards for the tool to audit.
+The only output will be the schema mismatches, otherwise, no output will be written out unless --status option provided.
 
     mysql-sharded-schema-auditor
 
@@ -439,7 +440,8 @@ Example output:
       -p PORT, --port PORT  Port to filter all shard hosts
       --shards SHARDS [SHARDS ...]
                             space separate list of shards to audit
-
+      --model MODEL         Model shard schema to override the config
+      --status              Output status during execution
 
 
 

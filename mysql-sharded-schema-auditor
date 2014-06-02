@@ -8,8 +8,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-H', '--host', help="Hostname to filter all shard hosts")
     parser.add_argument('-p', '--port', help="Port to filter all shard hosts")
-    parser.add_argument('--shards', nargs='+', help="space separate list of shards to audit")
-    parser.add_argument('--model', help='model shard schema to override the config')
+    parser.add_argument('--shards', nargs='+', help="Space separate list of shards to audit")
+    parser.add_argument('--model', help='Model shard schema to override the config')
+    parser.add_argument('--status', action='store_true', help='Output status during execution')
 
     args = parser.parse_args()
 
@@ -50,7 +51,8 @@ def main():
             continue
         if args.shards and shard not in args.shards:
             continue
-        print "AUDITING: " + shard
+        if args.status:
+            print "AUDITING: " + shard
         auditor.audit_schema(settings.SHARD_DB_CREDENTIALS['user'], settings.SHARD_DB_CREDENTIALS['password'], host, shard, port)
 
 
