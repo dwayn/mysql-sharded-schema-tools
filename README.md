@@ -507,6 +507,9 @@ Execution run (adding the --execute flag causes the drops to be executed)
 
     mysql-sharded-schema-safe-drop --host HOSTNAME --port PORT --drop --execute --shards shard_1 shard_2 shard_3
 
+Dropping all the inactive shards by letting the tool determine inactive shards
+
+    mysql-sharded-schema-safe-drop --host HOSTNAME --port PORT --drop --execute --all-inactive-shards
 
 ## Options
 
@@ -515,6 +518,9 @@ Execution run (adding the --execute flag causes the drops to be executed)
       -p PORT, --port PORT  Port for the host to drop shards
       --shards SHARD [SHARD ...]
                             Space separated list of one or more shards to drop
+      --all-inactive-shards
+                            For drop operation, determine all inactive shards to
+                            drop automatically
       -l {active,inactive,all,hosts}, --list {active,inactive,all,hosts}
                             List shards on a host
       --drop                Drop the listed shards
