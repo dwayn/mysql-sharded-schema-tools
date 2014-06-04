@@ -89,15 +89,27 @@ def command_list(args, shardmap, hostmap):
 
 
 def drop_schemas(args, shardmap, hostmap):
+    if not args.host or not args.port:
+        print "Host and Port must be provided to drop shards"
+        exit()
+
     sharddbconn = MySQLdb.connect(host=args.host,
                          port=args.port,
                          user=settings.SHARD_DB_CREDENTIALS['user'],
                          passwd=settings.SHARD_DB_CREDENTIALS['password'],
-                         db='')
+                         db="")
     sharddb = sharddbconn.cursor()
 
+    if args.all_inactive_shards and not args.shards:
+        args.shards = []
+        sharddb.execute('show databases')
+        rows = sharddb.fetchall()
+        for row in rows:
+            if row[0] in shardmap and shardmap[row[0]] != args.host + ':' + str(args.port):
+                args.shards.append(row[0])
+
     if not args.shards:
-        print "List of shards to drop must be provided"
+        print "List of shards to drop or --all-inactive-shards must be provided"
         return
 
     for shard in args.shards:
@@ -159,6 +171,7 @@ def main():
     parser.add_argument('-H', '--host', help="Hostname to drop shards on")
     parser.add_argument('-p', '--port', type=int, help="Port for the host to drop shards", default=3306)
     parser.add_argument('--shards', nargs='+', help="Space separated list of one or more shards to drop", metavar='SHARD')
+    parser.add_argument('--all-inactive-shards',action='store_true', help="For drop operation, determine all inactive shards to drop automatically")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-l', '--list', choices=['active', 'inactive', 'all', 'hosts'], help='List shards on a host')
     group.add_argument('--drop', help='Drop the listed shards', action='store_true')
