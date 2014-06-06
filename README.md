@@ -37,7 +37,7 @@ There are a few assumptions that have been made with these tools.
 * Edit the credentials for the locator DB, shard DBs, and model shard DB
 * Edit the LOCATOR_TABLE variables to allow the tool to query the mapping of shard to host/port
 * Set the path to pt-online-schema-change if you intend to do online alters
-* Suggested: Add the directory containing this repo to your path for convenience in using the tools
+* Suggested: Add the directory containing this repo to your path for convenience in using the tools, or symlink the tools to a directory that is in your path
 
 
 ------------------------------------

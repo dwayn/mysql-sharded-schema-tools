@@ -19,6 +19,11 @@ LOCATOR_TABLE = {
     'host_col': 'hostname',
     # column that holds the port number for the shard host
     'port_col': 'port',
+    # the following slave configs can be set to "NULL" to disable this form of monitoring of single slave for pt-online-schema-change and enable normal --recursion-method based monitoring
+    # this is the column that holds the hostname or ip address of the slave host containing the shard (used to make pt-online-schema-change only monitor one slave)
+    'slave_host_col': "NULL",
+    # column that holds the port number for the shard slave host port
+    'slave_port_col': "NULL",
     # this is a where clause that gets appended to the select query from the shard locator table
     'where_clause': None
 }
