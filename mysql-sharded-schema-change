@@ -426,7 +426,7 @@ class Worker(multiprocessing.Process):
         if item['slave_host'] is not None:
             command += " --check-slave-lag=h="+item['slave_host']
             if item['slave_port'] is not None:
-                command += ",P="+item['slave_port']
+                command += ",P="+str(item['slave_port'])
         command += " --host={0} --user={1} --port={2} --alter={3} D={4},t={5}".format(item['host'],
                                                                                           self.manager.settings.SHARD_DB_CREDENTIALS['user'],
                                                                                           item['port'],
