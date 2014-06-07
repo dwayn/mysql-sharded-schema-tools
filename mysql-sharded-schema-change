@@ -79,7 +79,7 @@ class AlterManager:
         try:
             if len(self.settings.OPTIONS['filter_shards']) == 0 or (len(self.settings.OPTIONS['filter_shards']) > 0 and self.settings.MODEL_SHARD_DB_CREDENTIALS['dbname'] in self.settings.OPTIONS['filter_shards']):
                 mqueue = multiprocessing.Queue()
-                mqueue.put({'shard':self.settings.MODEL_SHARD_DB_CREDENTIALS['dbname'], 'host':self.settings.MODEL_SHARD_DB_CREDENTIALS['host'], 'port': self.settings.MODEL_SHARD_DB_CREDENTIALS['port']})
+                mqueue.put({'shard': self.settings.MODEL_SHARD_DB_CREDENTIALS['dbname'], 'host': self.settings.MODEL_SHARD_DB_CREDENTIALS['host'], 'port': self.settings.MODEL_SHARD_DB_CREDENTIALS['port'], 'slave_host':self.settings.MODEL_SHARD_DB_CREDENTIALS['slave_host'], 'slave_port': self.settings.MODEL_SHARD_DB_CREDENTIALS['slave_port']})
                 mqueue.put(None)
 
                 # the temporary rewriting of the ignore_errors flag is so that when it gets copied to the process memory for the model shard worker, it will properly throw an error always

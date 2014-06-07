@@ -71,6 +71,9 @@ MODEL_SHARD_DB_CREDENTIALS = {
     'host': 'localhost',
     'port': 3306,
     'dbname': 'model_shard',
+    # use these to set single specific host for pt-osc to monitor on replication
+    'slave_host': None,
+    'slave_port': None,
 }
 
 
